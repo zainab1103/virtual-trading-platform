@@ -1,0 +1,119 @@
+-- Virtual Trading Platform - MySQL Schema
+-- Run this file first: mysql -u root -p < schema.sql
+
+CREATE DATABASE IF NOT EXISTS virtual_trading;
+USE virtual_trading;
+
+-- 1. USERS
+CREATE TABLE IF NOT EXISTS users (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  email VARCHAR(100) UNIQUE NOT NULL,
+  password VARCHAR(255) NOT NULL,
+  role ENUM('user','admin') DEFAULT 'user',
+  status ENUM('active','blocked') DEFAULT 'active',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 2. WALLET
+CREATE TABLE IF NOT EXISTS wallet (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  initial_balance DECIMAL(15,2) DEFAULT 100000.00,
+  available_balance DECIMAL(15,2) NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- 3. STOCKS
+CREATE TABLE IF NOT EXISTS stocks (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  company_name VARCHAR(150) NOT NULL,
+  symbol VARCHAR(20) UNIQUE NOT NULL,
+  current_price DECIMAL(15,2) NOT NULL,
+  previous_close DECIMAL(15,2),
+  open_price DECIMAL(15,2),
+  day_high DECIMAL(15,2),
+  day_low DECIMAL(15,2),
+  volume BIGINT DEFAULT 0,
+  description TEXT,
+  status ENUM('active','inactive') DEFAULT 'active',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- 4. STOCK_PRICES (history)
+CREATE TABLE IF NOT EXISTS stock_prices (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  stock_id INT NOT NULL,
+  price DECIMAL(15,2) NOT NULL,
+  recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (stock_id) REFERENCES stocks(id) ON DELETE CASCADE
+);
+
+-- 5. PORTFOLIO
+CREATE TABLE IF NOT EXISTS portfolio (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  stock_id INT NOT NULL,
+  quantity INT DEFAULT 0,
+  average_buy_price DECIMAL(15,2) DEFAULT 0,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uniq_user_stock (user_id, stock_id),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (stock_id) REFERENCES stocks(id) ON DELETE CASCADE
+);
+
+-- 6. ORDERS
+CREATE TABLE IF NOT EXISTS orders (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  stock_id INT NOT NULL,
+  order_type ENUM('BUY','SELL') NOT NULL,
+  quantity INT NOT NULL,
+  price DECIMAL(15,2) NOT NULL,
+  total_amount DECIMAL(15,2) NOT NULL,
+  status ENUM('COMPLETED','REJECTED') DEFAULT 'COMPLETED',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (stock_id) REFERENCES stocks(id) ON DELETE CASCADE
+);
+
+-- 7. TRANSACTIONS
+CREATE TABLE IF NOT EXISTS transactions (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  stock_id INT NULL,
+  transaction_type ENUM('BUY','SELL') NOT NULL,
+  amount DECIMAL(15,2) NOT NULL,
+  description VARCHAR(255),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (stock_id) REFERENCES stocks(id) ON DELETE SET NULL
+);
+
+-- 8. WATCHLIST
+CREATE TABLE IF NOT EXISTS watchlist (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  stock_id INT NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uniq_user_watch (user_id, stock_id),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (stock_id) REFERENCES stocks(id) ON DELETE CASCADE
+);
+
+-- 9. PORTFOLIO_SNAPSHOTS
+CREATE TABLE IF NOT EXISTS portfolio_snapshots (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  available_balance DECIMAL(15,2),
+  portfolio_value DECIMAL(15,2),
+  total_account_value DECIMAL(15,2),
+  snapshot_date DATE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uniq_user_date (user_id, snapshot_date),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
